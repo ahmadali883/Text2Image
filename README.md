@@ -285,7 +285,7 @@ You need to run the server and the UI app in separate terminals. Make sure the v
     * Click "Generate Audio".
     * **Be patient!** The UI might seem unresponsive while the backend server processes the request on the CPU. Check the server terminal for progress logs. The generated audio will appear once complete.
 
-## Known Issues & Limitations
+## Known Issues & Limitation
 
 * **CPU Performance:** Inference using Tortoise TTS on a CPU is **extremely slow**. Expect long waits for audio generation.
 * **UI Responsiveness:** The Gradio UI uses a synchronous gRPC call in this example. This means the UI will freeze while waiting for the server to generate the audio. For better responsiveness, asynchronous handling (e.g., using `asyncio` with Gradio and gRPC) would be needed but adds complexity.

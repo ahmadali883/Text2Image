@@ -15,7 +15,8 @@ jobs:
           fetch-depth: 0 # Fetch all history for proper syncing
 
       - name: Sync to Hugging Face Hub
-        uses: huggingface/hub-sync-action@v1.0 # Use the official HF sync action
+        # Use @v1 instead of @v1.0 for the action version
+        uses: huggingface/hub-sync-action@v1
         with:
           # Required: The Hugging Face Hub repository ID (Space ID in this case)
           # Replace with your HF username and Space name

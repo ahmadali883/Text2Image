@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package tts;
+
+// The TTS service definition.
+service TTSService {
+  // Sends text and parameters, returns synthesized audio
+  rpc Synthesize (SynthesizeRequest) returns (SynthesizeResponse);
+}
+
+// The request message containing text and parameters
+message SynthesizeRequest {
+  string text = 1;
+  string voice = 2; // e.g., 'tom', 'random'
+  string preset = 3; // e.g., 'ultra_fast', 'fast', 'standard', 'high_quality'
+}
+
+// The response message containing the audio data
+message SynthesizeResponse {
+  bytes audio_content = 1; // Raw audio bytes (likely float32)
+  int32 sample_rate = 2; // e.g., 24000
+}

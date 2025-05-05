@@ -1,0 +1,39 @@
+# .github/workflows/sync_to_hub.yml
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [main] # Trigger the workflow on pushes to the main branch
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper syncing
+
+      - name: Sync to Hugging Face Hub
+        uses: huggingface/hub-sync-action@v1.0 # Use the official HF sync action
+        with:
+          # Required: The Hugging Face Hub repository ID (Space ID in this case)
+          # Replace with your HF username and Space name
+          # Example: repo_id: YourHFUsername/YourSpaceName
+          repo_id: AhmadAli223/Text2Image
+
+          # Required: Type of the repo ('model', 'dataset', or 'space')
+          repo_type: space
+
+          # Required: Hugging Face Hub token with write access
+          # Stored as a secret in GitHub repository settings
+          token: ${{ secrets.HF_TOKEN }}
+
+          # Optional: Specify the source directory (defaults to the root of the checkout)
+          # source_directory: .
+
+          # Optional: Specify the target directory in the HF repo (defaults to the root)
+          # target_directory: .
+
+          # Optional: Commit message for the sync commit
+          commit_message: "Sync changes from GitHub: ${{ github.sha }}"

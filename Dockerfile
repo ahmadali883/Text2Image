@@ -1,80 +1,49 @@
-# Use Python 3.10 as the base image
+# 1. Base Image: Use an official Python 3.10 image
 FROM python:3.10-slim
 
-# Set environment variables to prevent interactive prompts during build
-ENV PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive
+# 2. Install system dependencies (git is no longer needed here for cloning Tortoise)
+#    build-essential might still be useful for compiling some Python packages.
+RUN apt-get update && \
+    apt-get install -y build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install necessary system dependencies
-# git for cloning, ffmpeg for librosa, libsndfile1 for soundfile, build-essential for compiling
-# Adding libaio-dev just in case any dependency *indirectly* needs it for async_io, though deepspeed is removed
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    ffmpeg \
-    libsndfile1 \
-    build-essential \
-    libaio-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory
+# 3. Set up Working Directory
 WORKDIR /app
 
-# --- Tortoise TTS Installation ---
+# 4. Copy your pre-modified Tortoise TTS local directory into the image
+#    Assumes 'tortoise-tts' directory is in the same context as the Dockerfile
+COPY tortoise-tts/ /app/tortoise-tts/
 
-# 1. Install specific compatible versions of conflicting packages FIRST
-#    transformers==4.31.0 requires tokenizers >=0.11.1, !=0.11.3, <0.14
-RUN pip install --no-cache-dir "transformers==4.31.0" "tokenizers==0.13.3"
+# 5. Install Tortoise TTS and its Dependencies from your local, modified copy
+#    Install requirements from the (now pre-modified) requirements.txt
+RUN pip install --no-cache-dir -r /app/tortoise-tts/requirements.txt
+#    Install Tortoise TTS itself using pip from the local directory
+RUN cd /app/tortoise-tts && pip install --no-cache-dir .
 
-# 2. Install other direct Tortoise dependencies (excluding deepspeed and already installed ones)
-#    Based on tortoise-tts/requirements.txt, excluding deepspeed, transformers, tokenizers
-RUN pip install --no-cache-dir \
-    tqdm \
-    rotary_embedding_torch \
-    inflect \
-    progressbar \
-    einops==0.4.1 \
-    unidecode \
-    scipy \
-    librosa==0.9.1 \
-    ffmpeg-python \
-    numba \
-    torchaudio \
-    threadpoolctl \
-    appdirs \
-    pydantic==1.9.1
-
-# 3. Install Tortoise TTS directly from GitHub using pip
-#    This should respect the already installed dependencies
-#    Note: We are NOT cloning or running setup.py manually
-RUN pip install --no-cache-dir git+https://github.com/neonbjb/tortoise-tts.git
-
-# --- Application Setup ---
-# Copy the project-specific requirements file
-COPY requirements.txt .
-
-# Install project-specific dependencies (Gradio, gRPC, etc.)
-# This should respect the already installed versions
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the gRPC proto file and compile it
-COPY tts.proto .
-RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. tts.proto
-
-# Copy the application source code and entrypoint script
-COPY tts_server.py .
+# 6. Copy your project-specific files into the Docker image
 COPY app.py .
-COPY entrypoint.sh .
+COPY tts_server.py .
+COPY tts.proto .
+COPY requirements.txt ./project_requirements.txt 
+# Your project's requirements (for Gradio, etc.)
 
-# Make the entrypoint script executable
-RUN chmod +x entrypoint.sh
+# 7. Install Project-Specific Dependencies from your project's requirements.txt
+RUN pip install --no-cache-dir -r ./project_requirements.txt
 
-# Expose the ports the gRPC server and Gradio app will use
-EXPOSE 50051
-EXPOSE 7860
+# 8. Compile Protobuf Definition
+#    Installs grpcio-tools if not already in your project_requirements.txt
+RUN pip install --no-cache-dir grpcio-tools && \
+    python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. tts.proto
 
-# Set the entrypoint script to run when the container starts
-ENTRYPOINT ["./entrypoint.sh"]
+# 9. Expose Ports
+EXPOSE 7860 
+# For Gradio UI
 
-# Optional: Add healthcheck if needed
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
-#   CMD curl --fail http://localhost:7860 || exit 1
+EXPOSE 50051 
+# For gRPC server
+
+# 10. Set Environment Variables
+ENV PYTHONUNBUFFERED=1
+
+# 11. Define the command to run your application
+CMD ["python", "tts_server.py"]

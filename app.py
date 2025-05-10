@@ -4,6 +4,8 @@ import numpy as np
 import time
 import io
 import soundfile as sf # Using soundfile is generally better for float audio
+import os
+from datetime import datetime
 
 # Import generated gRPC files
 import tts_pb2
@@ -14,7 +16,11 @@ GRPC_SERVER_ADDRESS = 'localhost:50051'
 VOICES = ['random', 'tom', 'freeman', 'train_atkins', 'train_daws', 'train_dotrice', 'train_dreams', 'train_empire', 'train_grace', 'train_kennard', 'train_lescault', 'train_mouse'] # Add more from tortoise/voices if needed
 PRESETS = ['ultra_fast', 'fast', 'standard', 'high_quality']
 DEFAULT_PRESET = 'fast' # Important for CPU
+OUTPUT_DIR = 'generated_audio' # Directory to save generated audio files
 # -----------------------------
+
+# Create output directory if it doesn't exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # --- gRPC Client Function ---
 def generate_speech_grpc(text, voice, preset):
@@ -35,7 +41,7 @@ def generate_speech_grpc(text, voice, preset):
             # Make the gRPC call (this will block until server responds - potentially long time on CPU)
             start_time = time.time()
             print("Waiting for server response...")
-            response = stub.Synthesize(request, timeout=2400) # Generous timeout (20 mins) for CPU
+            response = stub.Synthesize(request, timeout=7200) # Increased timeout to 1 hour for CPU
             end_time = time.time()
             print(f"Received response from server in {end_time - start_time:.2f} seconds.")
 
@@ -44,8 +50,16 @@ def generate_speech_grpc(text, voice, preset):
                 audio_np = np.frombuffer(response.audio_content, dtype=np.float32)
                 sample_rate = response.sample_rate
                 print(f"Received audio: {len(audio_np)} samples at {sample_rate} Hz.")
+                
+                # Save the audio file
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{voice}_{preset}_{timestamp}.wav"
+                filepath = os.path.join(OUTPUT_DIR, filename)
+                sf.write(filepath, audio_np, sample_rate)
+                print(f"Saved audio to: {filepath}")
+                
                 # Return tuple for Gradio Audio component: (sample_rate, numpy_array)
-                return (sample_rate, audio_np), "Success"
+                return (sample_rate, audio_np), f"Success! Audio saved to: {filename}"
             else:
                 print("Error: Received empty response or audio content.")
                 # Attempt to get error details if possible (depends on server implementation)
